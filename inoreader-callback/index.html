@@ -5,43 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sonder — Redirecting...</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: #1a1a2e;
-            color: #e0e0e0;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #333;
-            border-top-color: #7c4dff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 1.5rem;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #1a1a2e; color: #e0e0e0; }
+        .container { text-align: center; padding: 2rem; max-width: 360px; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: #7c4dff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         h2 { margin: 0 0 0.5rem; font-weight: 500; }
         p { color: #999; font-size: 0.9rem; }
         .error { color: #ef5350; }
-        a { color: #7c4dff; }
+        a.btn { display: inline-block; margin-top: 1.25rem; padding: 0.85rem 1.6rem; background: #7c4dff; color: #fff; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 1rem; }
+        a.btn:active { background: #6a3de0; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="spinner" id="spinner"></div>
         <h2 id="title">Returning to Sonder...</h2>
-        <p id="message">Please wait</p>
+        <p id="message">If the app doesn't open automatically, tap the button.</p>
+        <a id="openBtn" class="btn" style="display:none">Open Sonder</a>
     </div>
 
     <script>
@@ -50,40 +30,31 @@
             var code = params.get('code');
             var state = params.get('state');
             var error = params.get('error');
+            var spinner = document.getElementById('spinner');
+            var title = document.getElementById('title');
+            var message = document.getElementById('message');
+            var openBtn = document.getElementById('openBtn');
 
-            if (error) {
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('title').textContent = 'Authorization denied';
-                document.getElementById('message').innerHTML = 'You can close this tab and try again from Sonder.';
-                document.getElementById('message').className = 'error';
-                return;
+            function fail(msg) {
+                spinner.style.display = 'none';
+                title.textContent = 'Something went wrong';
+                message.innerHTML = msg;
+                message.className = 'error';
             }
 
-            if (!code) {
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('title').textContent = 'Something went wrong';
-                document.getElementById('message').innerHTML = 'No authorization code received. Please try again from Sonder.';
-                document.getElementById('message').className = 'error';
-                return;
-            }
+            if (error) { fail('Authorization denied. Close this tab and try again from Sonder.'); return; }
+            if (!code) { fail('No authorization code received. Please try again from Sonder.'); return; }
 
-            // Build the custom scheme redirect
-            var redirect = 'sonder://inoreader-callback?code=' + encodeURIComponent(code);
-            if (state) {
-                redirect += '&state=' + encodeURIComponent(state);
-            }
+            var qs = 'code=' + encodeURIComponent(code) + (state ? '&state=' + encodeURIComponent(state) : '');
+            // intent:// targets the app directly on Android Chrome (más fiable que sonder://)
+            var intentUrl = 'intent://inoreader-callback?' + qs + '#Intent;scheme=sonder;package=ralian.dev.sonder;end';
 
-            // Redirect to the app
-            window.location.href = redirect;
+            // 1) Botón visible YA: un toque del usuario nunca lo bloquea Chrome.
+            openBtn.href = intentUrl;
+            openBtn.style.display = 'inline-block';
 
-            // Fallback: if the redirect didn't work after 3 seconds
-            setTimeout(function() {
-                document.getElementById('title').textContent = 'Could not open Sonder';
-                document.getElementById('message').innerHTML =
-                    'Make sure Sonder is installed and try again.<br><br>' +
-                    '<a href="' + redirect + '">Tap here to retry</a>';
-                document.getElementById('spinner').style.display = 'none';
-            }, 3000);
+            // 2) Intento automático (funciona en navegadores que lo permitan sin gesto).
+            window.location.href = intentUrl;
         })();
     </script>
 </body>
